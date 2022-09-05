@@ -159,7 +159,10 @@ ORDER BY avg_critic_score DESC
 #### 5. Years that dropped off the critics' favorites list
 
 That looks better! The `num_games` column convinces us that our new list of the critics' top games reflects years that had quite a few well-reviewed games rather than just one or two hits. 
-But which years dropped off the list due to having four or fewer reviewed games? Let's identify them so that someday we can track down more game reviews for those years and determine whether they might rightfully be considered as excellent years for video game releases!
+
+But which years dropped off the list due to having four or fewer reviewed games? 
+
+Let's identify them so that someday we can track down more game reviews for those years and determine whether they might rightfully be considered as excellent years for video game releases!
 
 ```sql
 WITH top_critic_years AS  --Created CTE 
@@ -174,7 +177,7 @@ WITH top_critic_years AS  --Created CTE
  ORDER BY avg_critic_score DESC
 ),
 
-	top_critic_years_more_than_four_games AS --Created second CTE
+top_critic_years_more_than_four_games AS --Created second CTE
 (
  SELECT TOP 10
   year
@@ -216,8 +219,8 @@ ORDER BY avg_critic_score DESC
 ```
 ----------------------
 #### 6. Which years did the video game players loved the most?
-It looks like the early 1990s might merit consideration as the golden age of video games based on critic_score alone.
-Now, let's look at the user_score averages.
+It looks like the early 1990s might merit consideration as the golden age of video games based on `critic_score` alone.
+Now, let's look at the `user_score` averages.
 
 ```sql
 SELECT TOP 10
@@ -250,9 +253,11 @@ ORDER BY avg_user_score DESC
 ```
 ----------------------
 #### 7. Years that both players and critics loved
-We've got a list of the top ten years according to both critic reviews and user reviews.
+We've got a list of the top ten years according to both `critic reviews` and `user reviews`.
+
 Are there any years that showed up on both tables? If so, those years would certainly be excellent ones!
-Let's see which years fits in the category of golden years of video games as per both critics and users.
+
+Let's see which years fits in the category of golden years of video games as per both `critics` and `users`.
 
 ```sql
 WITH top_critic_years_more_than_four_games AS --Created first CTE for critic scores
@@ -304,6 +309,7 @@ FROM top_user_years_more_than_four_games
 #### 8. Sales in the best video game years
 
 From the above, we get the idea that there are 3 years that both critics and users loves the most.
+
 Now, let's see how those years has performed as per developers? 
 
 ``The tables created from above CTE are used here. So only the main query is displayed.``
