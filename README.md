@@ -30,10 +30,9 @@ Our database contains two tables:
  #### 1. Let's begin by looking at some of the top selling video games of all time!
  
  ```sql
-SELECT *
+SELECT TOP 10 *
 FROM game_sales
-ORDER BY games_sold desc
-LIMIT 10;
+ORDER BY game_sold DESC
 ```
 
 #### Output:
@@ -57,43 +56,48 @@ LIMIT 10;
 ----------------------
 #### 2.  Missing review scores
 
-Wow, the best-selling video games were released between 1985 to 2017! That's quite a range; we'll have to use data from the `reviews` table to gain more insight on the best years for video games.
+The best-selling video games were released between 1985 to 2017! Let's look at the `reviews` table to gain more insight on the best years for video games.
 
-First, it's important to explore the limitations of our database. One big shortcoming is that there is not any `reviews` data for some of the games on the `game_sales` table.
+First, it's important to check whether `reviews` table contains review score for all the movies? There may not be `reviews` data for some of the games on the `game_sales` table.
+
+So, let's count the movies not having any review score
 
 ```sql
-SELECT COUNT(*) --Counts the number of games
-FROM game_sales AS g
+SELECT 
+ COUNT (*) AS no_of_games_with_no_reviews
+ ,(SELECT COUNT(*) FROM game_sales) AS tot_games
+FROM game_sales AS s
 LEFT JOIN reviews AS r
-ON g.game = r.game
-WHERE critic_score IS NULL --only filter data where there is no scores or missing scores
-    AND user_score IS NULL
+ON s.game = r.game
+WHERE critic_score IS NULL
+ AND user_score IS NULL
 ```
 
 #### Output:
 
 ```markdown
-| count |
-|-------|
-|    31 |
+| no_of_games_with_no_reviews | tot_games |
+|-----------------------------|-----------|
+|                          31 |       400 |
 ```
-----------------------
-#### 3. Years that video game critics loved
 
-It looks like a little less than ten percent of the games on the `game_sales` table don't have any reviews data. That's a small enough percentage that we can continue our exploration, but the missing reviews data is a good thing to keep in mind as we move on to evaluating results from more sophisticated queries.
+
+----------------------
+#### 3. Which years did the video game critics loved the most?
+
+It looks like a little less than ten percent of the games on the `game_sales` table don't have any reviews data. That's a small enough percentage that we can continue our exploration.
 
 There are lots of ways to measure the best years for video games! Let's start with what the critics think.
 
 ```sql
-SELECT 
-    year
-    ,ROUND (AVG (critic_score), 2) AS avg_critic_score
-FROM game_sales
-INNER JOIN reviews
-USING (game)
+SELECT TOP 10
+ year
+ ,ROUND (AVG (critic_score), 2) AS avg_critic_score
+FROM game_sales AS s
+INNER JOIN reviews AS r
+ON s.game = r.game
 GROUP BY year
 ORDER BY avg_critic_score DESC
-LIMIT 10;
 ```
 #### Output:
 
@@ -120,20 +124,19 @@ The range of great years according to critic reviews goes from 1982 until 2020: 
 
 Hang on, though. Some of those `avg_critic_score` values look like suspiciously round numbers for averages. The value for 1982 looks especially fishy. Maybe there weren't a lot of video games in our dataset that were released in certain years.
 
-Let's update our query and find out whether 1982 really was such a great year for video games.
+Let's look at the critic score for years that have more than four reviewed games.
 
 ```sql	
-SELECT 
-    year
-    ,COUNT (*) AS num_games
-    ,ROUND (AVG (critic_score), 2) AS avg_critic_score
-FROM game_sales
-INNER JOIN reviews
-USING (game)
+SELECT TOP 10
+ year
+ ,COUNT (*) AS num_games
+ ,ROUND (AVG (critic_score), 2) AS avg_critic_score
+FROM game_sales AS s
+INNER JOIN reviews AS r
+ON s.game = r.game
 GROUP BY year
-HAVING COUNT (*) > 4 --Only returns years that have more than four reviewed games
+HAVING COUNT (*) > 4
 ORDER BY avg_critic_score DESC
-LIMIT 10;
 ```
 
 #### Output:
@@ -155,44 +158,46 @@ LIMIT 10;
 ----------------------
 #### 5. Years that dropped off the critics' favorites list
 
-That looks better! The `num_games` column convinces us that our new list of the critics' top games reflects years that had quite a few well-reviewed games rather than just one or two hits. But which years dropped off the list due to having four or fewer reviewed games? Let's identify them so that someday we can track down more game reviews for those years and determine whether they might rightfully be considered as excellent years for video game releases!
+That looks better! The `num_games` column convinces us that our new list of the critics' top games reflects years that had quite a few well-reviewed games rather than just one or two hits. 
+But which years dropped off the list due to having four or fewer reviewed games? Let's identify them so that someday we can track down more game reviews for those years and determine whether they might rightfully be considered as excellent years for video game releases!
 
 ```sql
-WITH top_critic_years AS (
-    SELECT 
-        year
-        ,ROUND (AVG (critic_score), 2) AS avg_critic_score
-    FROM game_sales
-    INNER JOIN reviews
-    USING (game)
-    GROUP BY year
-    ),
+WITH top_critic_years AS  --Created CTE 
+(
+ SELECT TOP 10
+  year
+  ,ROUND (AVG (critic_score), 2) AS avg_critic_score
+ FROM game_sales AS s
+ INNER JOIN reviews AS r
+ ON s.game = r.game
+ GROUP BY year
+ ORDER BY avg_critic_score DESC
+),
 
+	top_critic_years_more_than_four_games AS --Created second CTE
+(
+ SELECT TOP 10
+  year
+  ,COUNT (*) AS num_games
+  ,ROUND (AVG (critic_score), 2) AS avg_critic_score
+ FROM game_sales AS s
+ INNER JOIN reviews AS r
+ ON s.game = r.game
+ GROUP BY year
+ HAVING COUNT (*) > 4
+ ORDER BY avg_critic_score DESC
+)
 
-  top_critic_years_more_than_four_games AS (
-    SELECT 
-        year
-        ,COUNT (*) AS num_games
-        ,ROUND (AVG (critic_score), 2) AS avg_critic_score
-    FROM game_sales
-    INNER JOIN reviews
-    USING (game)
-    GROUP BY year
-    HAVING COUNT (*) > 4
-    )
-```
-
-```sql
 SELECT 
-    year
-    ,avg_critic_score
+ year
+ ,avg_critic_score
 FROM top_critic_years
 
-EXCEPT
+EXCEPT -- using except to list out years which are not included in #top_critic_years_more_than_four_games
 
 SELECT 
-    year
-    ,avg_critic_score
+ year
+ ,avg_critic_score
 FROM top_critic_years_more_than_four_games
 ORDER BY avg_critic_score DESC
 ```
@@ -209,4 +214,124 @@ ORDER BY avg_critic_score DESC
 | 1995 |             9.07 |
 | 1982 |             9.00 |
 ```
+----------------------
+#### 6. Which years did the video game players loved the most?
+It looks like the early 1990s might merit consideration as the golden age of video games based on critic_score alone.
+Now, let's look at the user_score averages.
 
+```sql
+SELECT TOP 10
+ year
+ ,COUNT (*) AS num_games
+ ,ROUND (AVG (user_score), 2) AS avg_user_score
+FROM game_sales AS s
+INNER JOIN reviews AS r
+ON s.game = r.game
+GROUP BY year
+HAVING COUNT (*) > 4
+ORDER BY avg_user_score DESC
+```
+
+#### Output:
+
+```markdown
+| year | num_games | avg_user_score |
+|------|-----------|----------------|
+| 1997 |         8 |            9.5 |
+| 1998 |        10 |            9.4 |
+| 2010 |        23 |           9.24 |
+| 2009 |        20 |           9.18 |
+| 2008 |        20 |           9.03 |
+| 1996 |         5 |              9 |
+| 2006 |        16 |           8.95 |
+| 2005 |        13 |           8.95 |
+| 2000 |         8 |            8.8 |
+| 1999 |        11 |            8.8 |
+```
+----------------------
+#### 7. Years that both players and critics loved
+We've got a list of the top ten years according to both critic reviews and user reviews.
+Are there any years that showed up on both tables? If so, those years would certainly be excellent ones!
+Let's see which years fits in the category of golden years of video games as per both critics and users.
+
+```sql
+WITH top_critic_years_more_than_four_games AS --Created first CTE for critic scores
+ (
+ SELECT TOP 10
+  year
+  ,COUNT (*) AS num_games
+  ,ROUND (AVG (critic_score), 2) AS avg_critic_score
+ FROM game_sales AS s
+ INNER JOIN reviews AS r
+ ON s.game = r.game
+ GROUP BY year
+ HAVING COUNT (*) > 4
+ ORDER BY avg_critic_score DESC
+ ),
+top_user_years_more_than_four_games AS ----Created first CTE for user scores
+(
+ SELECT TOP 10
+  year
+  ,COUNT (*) AS num_games
+  ,ROUND (AVG (user_score), 2) AS avg_user_score
+ FROM game_sales AS s
+ INNER JOIN reviews AS r
+ ON s.game = r.game
+ GROUP BY year
+ HAVING COUNT (*) > 4
+ ORDER BY avg_user_score DESC
+ )
+
+SELECT year
+FROM top_critic_years_more_than_four_games
+
+INTERSECT -- using intersect to get values that exists in both the tables
+
+SELECT year
+FROM top_user_years_more_than_four_games
+```
+
+#### Output:
+
+```markdown
+| year |
+|------|
+| 1998 |
+| 1999 |
+| 2008 |
+```
+----------------------
+#### 8. Sales in the best video game years
+
+From the above, we get the idea that there are 3 years that both critics and users loves the most.
+Now, let's see how those years has performed as per developers? 
+
+``The tables created from above CTE are used here. So only the main query is displayed.``
+
+```sql
+SELECT
+ year
+ ,ROUND (SUM (game_sold),2) AS total_games_sold
+FROM game_sales
+WHERE year IN 
+   (SELECT year
+   FROM top_critic_years_more_than_four_games
+
+   INTERSECT
+
+   SELECT year
+   FROM top_user_years_more_than_four_games
+   )
+GROUP BY year
+ORDER BY total_games_sold DESC
+```
+
+#### Output:
+
+```markdown
+| year | total_games_sold |
+|------|------------------|
+| 2008 |           175.07 |
+| 1998 |           101.52 |
+| 1999 |             74.9 |
+```
